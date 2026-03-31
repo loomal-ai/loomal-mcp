@@ -53,10 +53,9 @@ server.registerTool("mail.whoami", {
   description: "Get your agent identity info — email address, name, and scopes",
   inputSchema: {},
 }, async () => {
-  // Call the API to get identity info
-  const { status, data } = await api("GET", "/messages?limit=0");
+  const { status, data } = await api("GET", "/whoami");
   if (status === 401) return fail("Invalid API key");
-  return ok({ message: "Connected to Mailgent", apiBase: API_BASE });
+  return status === 200 ? ok(data) : fail("Failed to get identity", data);
 });
 
 server.registerTool("mail.send", {
@@ -128,6 +127,28 @@ server.registerTool("mail.update_labels", {
 }, async ({ messageId, addLabels, removeLabels }) => {
   const { status, data } = await api("PATCH", `/messages/${encodeURIComponent(messageId)}`, { addLabels, removeLabels });
   return status === 200 ? ok(data) : fail("Failed to update labels", data);
+});
+
+server.registerTool("mail.delete_message", {
+  title: "Delete Message",
+  description: "Delete a single message from the inbox",
+  inputSchema: {
+    messageId: z.string().describe("The messageId to delete"),
+  },
+}, async ({ messageId }) => {
+  const { status, data } = await api("DELETE", `/messages/${encodeURIComponent(messageId)}`);
+  return status === 204 ? ok({ message: `Deleted message '${messageId}'` }) : fail("Failed to delete", data);
+});
+
+server.registerTool("mail.delete_thread", {
+  title: "Delete Thread",
+  description: "Delete an entire thread and all its messages",
+  inputSchema: {
+    threadId: z.string().describe("The threadId to delete"),
+  },
+}, async ({ threadId }) => {
+  const { status, data } = await api("DELETE", `/threads/${threadId}`);
+  return status === 204 ? ok({ message: `Deleted thread '${threadId}'` }) : fail("Failed to delete thread", data);
 });
 
 server.registerTool("mail.list_threads", {
