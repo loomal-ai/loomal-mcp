@@ -1,4 +1,4 @@
-# mailgent-mcp
+# loomal-mcp
 
 Identity infrastructure for AI agents — email, credentials, and TOTP in one place.
 
@@ -7,18 +7,18 @@ Identity infrastructure for AI agents — email, credentials, and TOTP in one pl
 ```json
 {
   "mcpServers": {
-    "mailgent": {
+    "loomal": {
       "command": "npx",
-      "args": ["-y", "mailgent-mcp"],
+      "args": ["-y", "loomal-mcp"],
       "env": {
-        "MAILGENT_API_KEY": "YOUR_API_KEY"
+        "LOOMAL_API_KEY": "YOUR_API_KEY"
       }
     }
   }
 }
 ```
 
-Get your API key from [console.mailgent.dev](https://console.mailgent.dev).
+Get your API key from [console.loomal.ai](https://console.loomal.ai).
 
 ## Examples
 
@@ -71,13 +71,13 @@ Each identity is its own MCP server instance:
   "mcpServers": {
     "sales-agent": {
       "command": "npx",
-      "args": ["-y", "mailgent-mcp"],
-      "env": { "MAILGENT_API_KEY": "mgent-sales-key" }
+      "args": ["-y", "loomal-mcp"],
+      "env": { "LOOMAL_API_KEY": "mgent-sales-key" }
     },
     "support-agent": {
       "command": "npx",
-      "args": ["-y", "mailgent-mcp"],
-      "env": { "MAILGENT_API_KEY": "mgent-support-key" }
+      "args": ["-y", "loomal-mcp"],
+      "env": { "LOOMAL_API_KEY": "mgent-support-key" }
     }
   }
 }
@@ -85,7 +85,7 @@ Each identity is its own MCP server instance:
 
 ## Docs
 
-[docs.mailgent.dev](https://docs.mailgent.dev)
+[docs.loomal.ai](https://docs.loomal.ai)
 
 ## License
 

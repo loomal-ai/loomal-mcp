@@ -1,10 +1,10 @@
 {
-  "name": "mailgent-mcp",
+  "name": "loomal-mcp",
   "version": "0.1.0",
-  "description": "MCP server for Mailgent — Identity infrastructure for AI agents",
+  "description": "MCP server for Loomal — Identity infrastructure for AI agents",
   "type": "module",
   "bin": {
-    "mailgent-mcp": "./build/index.js"
+    "loomal-mcp": "./build/index.js"
   },
   "scripts": {
     "build": "tsc && chmod +x build/index.js",
@@ -23,7 +23,7 @@
   ],
   "keywords": [
     "mcp",
-    "mailgent",
+    "loomal",
     "email",
     "ai-agent",
     "vault",
@@ -32,8 +32,8 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/mailgent-dev/mailgent-mcp.git"
+    "url": "https://github.com/loomal-ai/loomal-mcp.git"
   },
-  "homepage": "https://mailgent.dev",
+  "homepage": "https://loomal.ai",
   "license": "MIT"
 }

@@ -4,8 +4,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
-const API_KEY = process.env.MAILGENT_API_KEY || "";
-const API_BASE = process.env.MAILGENT_API_URL || "https://api.mailgent.dev";
+const API_KEY = process.env.LOOMAL_API_KEY || "";
+const API_BASE = process.env.LOOMAL_API_URL || "https://api.loomal.ai";
 
 async function api(
   method: string,
@@ -40,7 +40,7 @@ function fail(msg: string, data?: unknown) {
 }
 
 const server = new McpServer({
-  name: "mailgent",
+  name: "loomal",
   version: "0.1.0",
 });
 
@@ -248,7 +248,7 @@ server.registerTool("vault.delete", {
 
 async function main() {
   if (!API_KEY) {
-    console.error("MAILGENT_API_KEY is required. Set it in your MCP config env.");
+    console.error("LOOMAL_API_KEY is required. Set it in your MCP config env.");
     process.exit(1);
   }
 
