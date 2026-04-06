@@ -45,30 +45,39 @@ const server = new McpServer({
 });
 
 // ============================================
-// MAIL TOOLS
+// IDENTITY TOOLS
 // ============================================
 
-server.registerTool("mail.whoami", {
+server.registerTool("identity.whoami", {
   title: "Who Am I",
-  description: "Get your agent identity info — email address, name, and scopes",
+  description: "Get your agent identity info — name, email, DID, and scopes",
   inputSchema: {},
+  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 }, async () => {
   const { status, data } = await api("GET", "/whoami");
   if (status === 401) return fail("Invalid API key");
   return status === 200 ? ok(data) : fail("Failed to get identity", data);
 });
 
+// Note: identity.sign and identity.verify require direct DB access and are only
+// available via the hosted MCP server at https://api.loomal.ai/mcp
+
+// ============================================
+// MAIL TOOLS
+// ============================================
+
 server.registerTool("mail.send", {
   title: "Send Email",
   description: "Send an email from your agent's inbox",
   inputSchema: {
     to: z.array(z.string()).describe("Recipient email addresses"),
-    subject: z.string().describe("Email subject"),
-    text: z.string().describe("Plain text body"),
-    html: z.string().optional().describe("HTML body (optional)"),
-    cc: z.array(z.string()).optional().describe("CC recipients"),
-    bcc: z.array(z.string()).optional().describe("BCC recipients"),
+    subject: z.string().describe("Email subject line"),
+    text: z.string().describe("Plain text body of the email"),
+    html: z.string().optional().describe("Optional HTML body for rich formatting"),
+    cc: z.array(z.string()).optional().describe("Carbon copy recipient email addresses"),
+    bcc: z.array(z.string()).optional().describe("Blind carbon copy recipient email addresses"),
   },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
 }, async ({ to, subject, text, html, cc, bcc }) => {
   const { status, data } = await api("POST", "/messages/send", { to, subject, text, html, cc, bcc });
   return status === 201 ? ok(data) : fail("Failed to send", data);
@@ -78,10 +87,11 @@ server.registerTool("mail.reply", {
   title: "Reply to Email",
   description: "Reply to an existing email in a thread",
   inputSchema: {
-    messageId: z.string().describe("The messageId to reply to"),
-    text: z.string().describe("Reply text"),
-    html: z.string().optional().describe("Reply HTML (optional)"),
+    messageId: z.string().describe("The messageId of the email to reply to"),
+    text: z.string().describe("Plain text reply body"),
+    html: z.string().optional().describe("HTML reply body (optional)"),
   },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
 }, async ({ messageId, text, html }) => {
   const { status, data } = await api("POST", `/messages/${encodeURIComponent(messageId)}/reply`, { text, html });
   return status === 201 ? ok(data) : fail("Failed to reply", data);
@@ -89,12 +99,13 @@ server.registerTool("mail.reply", {
 
 server.registerTool("mail.list_messages", {
   title: "List Messages",
-  description: "List emails in your inbox. Returns newest first.",
+  description: "List emails in your agent's inbox. Returns newest first.",
   inputSchema: {
-    limit: z.number().optional().describe("Max messages (default 20, max 100)"),
+    limit: z.number().optional().describe("Max messages to return (default 20, max 100)"),
     labels: z.string().optional().describe("Filter by labels, comma-separated"),
-    pageToken: z.string().optional().describe("Pagination cursor"),
+    pageToken: z.string().optional().describe("Pagination token"),
   },
+  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 }, async ({ limit, labels, pageToken }) => {
   const params = new URLSearchParams();
   if (limit) params.set("limit", String(limit));
@@ -107,10 +118,11 @@ server.registerTool("mail.list_messages", {
 
 server.registerTool("mail.get_message", {
   title: "Get Message",
-  description: "Get a specific email by messageId",
+  description: "Get a specific email by its messageId",
   inputSchema: {
-    messageId: z.string().describe("The messageId"),
+    messageId: z.string().describe("The messageId to retrieve"),
   },
+  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 }, async ({ messageId }) => {
   const { status, data } = await api("GET", `/messages/${encodeURIComponent(messageId)}`);
   return status === 200 ? ok(data) : fail("Failed to get message", data);
@@ -120,10 +132,11 @@ server.registerTool("mail.update_labels", {
   title: "Update Labels",
   description: "Add or remove labels on a message",
   inputSchema: {
-    messageId: z.string().describe("The messageId"),
-    addLabels: z.array(z.string()).optional().describe("Labels to add"),
-    removeLabels: z.array(z.string()).optional().describe("Labels to remove"),
+    messageId: z.string().describe("The messageId to update"),
+    addLabels: z.array(z.string()).optional().describe("Labels to add to the message (e.g. 'important', 'follow-up')"),
+    removeLabels: z.array(z.string()).optional().describe("Labels to remove from the message"),
   },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 }, async ({ messageId, addLabels, removeLabels }) => {
   const { status, data } = await api("PATCH", `/messages/${encodeURIComponent(messageId)}`, { addLabels, removeLabels });
   return status === 200 ? ok(data) : fail("Failed to update labels", data);
@@ -135,6 +148,7 @@ server.registerTool("mail.delete_message", {
   inputSchema: {
     messageId: z.string().describe("The messageId to delete"),
   },
+  annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
 }, async ({ messageId }) => {
   const { status, data } = await api("DELETE", `/messages/${encodeURIComponent(messageId)}`);
   return status === 204 ? ok({ message: `Deleted message '${messageId}'` }) : fail("Failed to delete", data);
@@ -146,6 +160,7 @@ server.registerTool("mail.delete_thread", {
   inputSchema: {
     threadId: z.string().describe("The threadId to delete"),
   },
+  annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
 }, async ({ threadId }) => {
   const { status, data } = await api("DELETE", `/threads/${threadId}`);
   return status === 204 ? ok({ message: `Deleted thread '${threadId}'` }) : fail("Failed to delete thread", data);
@@ -153,11 +168,12 @@ server.registerTool("mail.delete_thread", {
 
 server.registerTool("mail.list_threads", {
   title: "List Threads",
-  description: "List email threads. Returns newest first.",
+  description: "List email threads in your agent's inbox. Returns newest first.",
   inputSchema: {
-    limit: z.number().optional().describe("Max threads (default 20, max 100)"),
-    pageToken: z.string().optional().describe("Pagination cursor"),
+    limit: z.number().optional().describe("Max threads to return (default 20, max 100)"),
+    pageToken: z.string().optional().describe("Pagination token"),
   },
+  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 }, async ({ limit, pageToken }) => {
   const params = new URLSearchParams();
   if (limit) params.set("limit", String(limit));
@@ -169,12 +185,17 @@ server.registerTool("mail.list_threads", {
 
 server.registerTool("mail.get_thread", {
   title: "Get Thread",
-  description: "Get a full thread with all messages",
+  description: "Get a full email thread with messages (newest 200 by default)",
   inputSchema: {
-    threadId: z.string().describe("The threadId"),
+    threadId: z.string().describe("The threadId to retrieve"),
+    limit: z.number().optional().describe("Max messages to return (default 200, max 500)"),
   },
-}, async ({ threadId }) => {
-  const { status, data } = await api("GET", `/threads/${threadId}`);
+  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+}, async ({ threadId, limit }) => {
+  const params = new URLSearchParams();
+  if (limit) params.set("limit", String(limit));
+  const q = params.toString();
+  const { status, data } = await api("GET", `/threads/${threadId}${q ? `?${q}` : ""}`);
   return status === 200 ? ok(data) : fail("Failed to get thread", data);
 });
 
@@ -184,8 +205,9 @@ server.registerTool("mail.get_thread", {
 
 server.registerTool("vault.list", {
   title: "List Credentials",
-  description: "List all credentials in the vault (metadata only)",
+  description: "List all credentials in the vault (metadata only, no secrets)",
   inputSchema: {},
+  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 }, async () => {
   const { status, data } = await api("GET", "/vault");
   return status === 200 ? ok(data) : fail("Failed to list credentials", data);
@@ -193,10 +215,11 @@ server.registerTool("vault.list", {
 
 server.registerTool("vault.get", {
   title: "Get Credential",
-  description: "Get a decrypted credential from the vault",
+  description: "Retrieve a decrypted credential from the vault. For TOTP credentials, use vault.totp instead to get the code.",
   inputSchema: {
-    name: z.string().describe("Credential name"),
+    name: z.string().describe("Credential name (e.g. 'salesforce', 'hubspot-api')"),
   },
+  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 }, async ({ name }) => {
   const { status, data } = await api("GET", `/vault/${encodeURIComponent(name)}`);
   return status === 200 ? ok(data) : fail("Failed to get credential", data);
@@ -204,10 +227,11 @@ server.registerTool("vault.get", {
 
 server.registerTool("vault.totp", {
   title: "Get TOTP Code",
-  description: "Get the current 6-digit TOTP code for a credential",
+  description: "Generate the current 6-digit TOTP code. Works on any credential that has a TOTP secret (standalone TOTP type or any credential with a 'totp' field).",
   inputSchema: {
     name: z.string().describe("Credential name with TOTP"),
   },
+  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
 }, async ({ name }) => {
   const { status, data } = await api("GET", `/vault/${encodeURIComponent(name)}/totp`);
   return status === 200 ? ok(data) : fail("Failed to get TOTP", data);
@@ -215,17 +239,18 @@ server.registerTool("vault.totp", {
 
 server.registerTool("vault.store", {
   title: "Store Credential",
-  description: "Store or update a credential in the vault",
+  description: "Store or update an encrypted credential in the vault",
   inputSchema: {
-    name: z.string().describe("Credential name"),
+    name: z.string().describe("Credential name (e.g. 'salesforce', 'prod-db')"),
     type: z.enum([
       "LOGIN", "API_KEY", "OAUTH", "TOTP", "SSH_KEY",
       "DATABASE", "SMTP", "AWS", "CERTIFICATE", "CUSTOM",
     ]).describe("Credential type"),
-    data: z.record(z.unknown()).describe("Secret fields to encrypt"),
-    metadata: z.record(z.unknown()).optional().describe("Non-secret metadata"),
-    expiresAt: z.string().optional().describe("Expiry (ISO 8601)"),
+    data: z.record(z.string(), z.any()).describe("Secret fields to encrypt (e.g. { key: 'sk_...' })"),
+    metadata: z.record(z.string(), z.any()).optional().describe("Non-secret metadata for display (e.g. { service: 'stripe' })"),
+    expiresAt: z.string().optional().describe("Expiry date (ISO 8601)"),
   },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 }, async ({ name, type, data, metadata, expiresAt }) => {
   const { status, data: res } = await api("PUT", `/vault/${encodeURIComponent(name)}`, { type, data, metadata, expiresAt });
   return status === 200 ? ok(res) : fail("Failed to store credential", res);
@@ -233,14 +258,366 @@ server.registerTool("vault.store", {
 
 server.registerTool("vault.delete", {
   title: "Delete Credential",
-  description: "Delete a credential from the vault",
+  description: "Remove a credential from the vault",
   inputSchema: {
-    name: z.string().describe("Credential name"),
+    name: z.string().describe("Credential name to delete"),
   },
+  annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
 }, async ({ name }) => {
   const { status, data } = await api("DELETE", `/vault/${encodeURIComponent(name)}`);
   return status === 204 ? ok({ message: `Deleted '${name}'` }) : fail("Failed to delete", data);
 });
+
+// ============================================
+// CALENDAR TOOLS
+// ============================================
+
+server.registerTool("calendar.create", {
+  title: "Create Calendar Event",
+  description: "Create a new event on this identity's calendar",
+  inputSchema: {
+    title: z.string().describe("Event title"),
+    description: z.string().optional().describe("Event description"),
+    startAt: z.string().describe("Start date/time (ISO 8601)"),
+    endAt: z.string().optional().describe("End date/time (ISO 8601)"),
+    isAllDay: z.boolean().default(false).describe("All-day event"),
+    location: z.string().optional().describe("Event location"),
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+}, async ({ title, description, startAt, endAt, isAllDay, location }) => {
+  const { status, data } = await api("POST", "/calendar", { title, description, startAt, endAt, isAllDay, location });
+  return status === 201 || status === 200 ? ok(data) : fail("Failed to create event", data);
+});
+
+server.registerTool("calendar.update", {
+  title: "Update Calendar Event",
+  description: "Update an existing calendar event",
+  inputSchema: {
+    eventId: z.string().describe("Event ID to update"),
+    title: z.string().optional().describe("New title"),
+    description: z.string().optional().describe("New description"),
+    startAt: z.string().optional().describe("New start date/time (ISO 8601)"),
+    endAt: z.string().optional().describe("New end date/time (ISO 8601)"),
+    isAllDay: z.boolean().optional().describe("All-day event"),
+    location: z.string().optional().describe("New location"),
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+}, async ({ eventId, ...fields }) => {
+  const { status, data } = await api("PATCH", `/calendar/${eventId}`, fields);
+  return status === 200 ? ok(data) : fail("Failed to update event", data);
+});
+
+server.registerTool("calendar.list", {
+  title: "List Calendar Events",
+  description: "List events on this identity's calendar",
+  inputSchema: {
+    limit: z.number().optional().describe("Max results (default 50, max 100)"),
+    from: z.string().optional().describe("Filter: events starting from (ISO 8601)"),
+    to: z.string().optional().describe("Filter: events starting before (ISO 8601)"),
+  },
+  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+}, async ({ limit, from, to }) => {
+  const params = new URLSearchParams();
+  if (limit) params.set("limit", String(limit));
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  const q = params.toString();
+  const { status, data } = await api("GET", `/calendar${q ? `?${q}` : ""}`);
+  return status === 200 ? ok(data) : fail("Failed to list events", data);
+});
+
+server.registerTool("calendar.get", {
+  title: "Get Calendar Event",
+  description: "Get details of a specific calendar event",
+  inputSchema: {
+    eventId: z.string().describe("Event ID"),
+  },
+  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+}, async ({ eventId }) => {
+  const { status, data } = await api("GET", `/calendar/${eventId}`);
+  return status === 200 ? ok(data) : fail("Failed to get event", data);
+});
+
+server.registerTool("calendar.delete", {
+  title: "Delete Calendar Event",
+  description: "Delete a calendar event",
+  inputSchema: {
+    eventId: z.string().describe("Event ID to delete"),
+  },
+  annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+}, async ({ eventId }) => {
+  const { status, data } = await api("DELETE", `/calendar/${eventId}`);
+  return status === 204 ? ok({ message: `Deleted event '${eventId}'` }) : fail("Failed to delete event", data);
+});
+
+server.registerTool("calendar.set_public", {
+  title: "Set Calendar Visibility",
+  description: "Make this identity's calendar public or private. Public calendars are viewable at /identities/:id/calendar.json",
+  inputSchema: {
+    enabled: z.boolean().describe("true = public, false = private"),
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+}, async ({ enabled }) => {
+  const { status, data } = await api("POST", "/calendar/public", { enabled });
+  return status === 200 ? ok(data) : fail("Failed to set calendar visibility", data);
+});
+
+// ============================================
+// PROMPTS
+// ============================================
+
+server.registerPrompt("whoami", {
+  title: "Who Am I",
+  description: "Get your agent identity — name, email, and permissions",
+}, async () => ({
+  messages: [{
+    role: "user" as const,
+    content: { type: "text" as const, text: "Tell me who I am. Get my identity info including my name, email address, and what scopes/permissions I have." },
+  }],
+}));
+
+server.registerPrompt("check-inbox", {
+  title: "Check Inbox",
+  description: "Check your inbox for new and unread messages",
+}, async () => ({
+  messages: [{
+    role: "user" as const,
+    content: { type: "text" as const, text: "Check my inbox for any new or unread messages. Summarize what you find, including sender, subject, and a brief preview of each message." },
+  }],
+}));
+
+server.registerPrompt("daily-digest", {
+  title: "Daily Digest",
+  description: "Get a summary of today's email activity",
+}, async () => ({
+  messages: [{
+    role: "user" as const,
+    content: { type: "text" as const, text: "Give me a daily digest of my email activity. List all threads updated today, any unread messages, and highlight anything that needs my attention." },
+  }],
+}));
+
+server.registerPrompt("read-thread", {
+  title: "Read Thread",
+  description: "Read a specific email thread and summarize the conversation",
+  argsSchema: {
+    threadId: z.string().describe("The thread ID to read"),
+  },
+}, async ({ threadId }) => ({
+  messages: [{
+    role: "user" as const,
+    content: { type: "text" as const, text: `Read thread ${threadId} and give me a summary of the full conversation — who said what, key points, and any action items.` },
+  }],
+}));
+
+server.registerPrompt("search-messages", {
+  title: "Search Messages",
+  description: "Search inbox messages by label or keyword",
+  argsSchema: {
+    query: z.string().describe("Label or keyword to search for"),
+  },
+}, async ({ query }) => ({
+  messages: [{
+    role: "user" as const,
+    content: { type: "text" as const, text: `Search my inbox for messages related to "${query}". List matching messages with sender, subject, and date.` },
+  }],
+}));
+
+server.registerPrompt("send-email", {
+  title: "Send Email",
+  description: "Compose and send an email",
+  argsSchema: {
+    to: z.string().describe("Recipient email address"),
+    subject: z.string().describe("Email subject"),
+  },
+}, async ({ to, subject }) => ({
+  messages: [{
+    role: "user" as const,
+    content: { type: "text" as const, text: `Compose and send an email to ${to} with the subject "${subject}". Ask me what the email body should contain before sending.` },
+  }],
+}));
+
+server.registerPrompt("reply-to-email", {
+  title: "Reply to Email",
+  description: "Reply to a specific email message",
+  argsSchema: {
+    messageId: z.string().describe("The message ID to reply to"),
+  },
+}, async ({ messageId }) => ({
+  messages: [{
+    role: "user" as const,
+    content: { type: "text" as const, text: `Read message ${messageId}, show me its contents, and help me draft a reply. Show me the draft before sending.` },
+  }],
+}));
+
+server.registerPrompt("follow-up", {
+  title: "Follow Up",
+  description: "Send a follow-up email on a thread",
+  argsSchema: {
+    threadId: z.string().describe("The thread ID to follow up on"),
+  },
+}, async ({ threadId }) => ({
+  messages: [{
+    role: "user" as const,
+    content: { type: "text" as const, text: `Read thread ${threadId}, understand the conversation context, and help me draft a follow-up message. Show me the draft before sending.` },
+  }],
+}));
+
+server.registerPrompt("label-messages", {
+  title: "Label Messages",
+  description: "Add or remove labels on messages",
+  argsSchema: {
+    label: z.string().describe("Label to add or remove"),
+  },
+}, async ({ label }) => ({
+  messages: [{
+    role: "user" as const,
+    content: { type: "text" as const, text: `Find all messages that should be labeled "${label}" and add the label to them. Show me which messages you're labeling.` },
+  }],
+}));
+
+server.registerPrompt("cleanup-inbox", {
+  title: "Cleanup Inbox",
+  description: "Clean up inbox by archiving or deleting old messages",
+}, async () => ({
+  messages: [{
+    role: "user" as const,
+    content: { type: "text" as const, text: "Help me clean up my inbox. List old threads and messages that can be archived or deleted. Ask for confirmation before deleting anything." },
+  }],
+}));
+
+server.registerPrompt("list-credentials", {
+  title: "List Credentials",
+  description: "List all credentials stored in the vault",
+}, async () => ({
+  messages: [{
+    role: "user" as const,
+    content: { type: "text" as const, text: "List all credentials in my vault. Show the name, type, and when each was last used. Do not show any secret values." },
+  }],
+}));
+
+server.registerPrompt("store-credential", {
+  title: "Store Credential",
+  description: "Store a new credential in the vault",
+  argsSchema: {
+    name: z.string().describe("Credential name (e.g. 'stripe-api')"),
+    type: z.string().describe("Credential type (e.g. API_KEY, LOGIN, TOTP)"),
+  },
+}, async ({ name, type }) => ({
+  messages: [{
+    role: "user" as const,
+    content: { type: "text" as const, text: `Store a new ${type} credential named "${name}" in the vault. Ask me for the secret values to store.` },
+  }],
+}));
+
+server.registerPrompt("get-totp", {
+  title: "Get TOTP Code",
+  description: "Generate a 2FA code from a stored credential",
+  argsSchema: {
+    name: z.string().describe("Credential name with TOTP"),
+  },
+}, async ({ name }) => ({
+  messages: [{
+    role: "user" as const,
+    content: { type: "text" as const, text: `Generate the current TOTP 2FA code for the credential "${name}" and tell me the code and how many seconds until it expires.` },
+  }],
+}));
+
+// ============================================
+// SUPERVISOR MODE
+// ============================================
+
+const IS_SUPERVISOR = API_KEY.startsWith("mgsv-");
+
+const supervisorServer = new McpServer({
+  name: "loomal-supervisor",
+  version: "0.1.0",
+});
+
+function supervisorApi(
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<{ status: number; data: unknown }> {
+  return api(method, `/platform${path}`, body);
+}
+
+if (IS_SUPERVISOR) {
+  supervisorServer.registerTool("identities.list", {
+    title: "List Identities",
+    description: "List all identities in the organization",
+    inputSchema: {
+      limit: z.number().optional().describe("Max results (default 50, max 100)"),
+    },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  }, async ({ limit }) => {
+    const params = new URLSearchParams();
+    if (limit) params.set("limit", String(limit));
+    const q = params.toString();
+    const { status, data } = await supervisorApi("GET", `/identities${q ? `?${q}` : ""}`);
+    return status === 200 ? ok(data) : fail("Failed to list identities", data);
+  });
+
+  supervisorServer.registerTool("identities.get", {
+    title: "Get Identity",
+    description: "Get details of a specific identity",
+    inputSchema: {
+      identityId: z.string().describe("Identity ID"),
+    },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  }, async ({ identityId }) => {
+    const { status, data } = await supervisorApi("GET", `/identities/${identityId}`);
+    return status === 200 ? ok(data) : fail("Failed to get identity", data);
+  });
+
+  supervisorServer.registerTool("identities.create", {
+    title: "Create Identity",
+    description: "Create a new agent identity with an email inbox and API key",
+    inputSchema: {
+      name: z.string().describe("Display name (e.g. Sales Agent)"),
+      emailName: z.string().describe("Email prefix (e.g. salesagent)"),
+      scopes: z.array(z.string()).describe("Scopes: mail:read, mail:send, mail:manage, vault:read, vault:write, identity:sign, identity:verify, calendar:read, calendar:write, calendar:delete, calendar:public"),
+    },
+  }, async ({ name, emailName, scopes }) => {
+    const { status, data } = await supervisorApi("POST", "/identities", { name, emailName, scopes });
+    return status === 201 || status === 200 ? ok(data) : fail("Failed to create identity", data);
+  });
+
+  supervisorServer.registerTool("identities.delete", {
+    title: "Delete Identity",
+    description: "Permanently delete an identity and all its data (inbox, vault, logs)",
+    inputSchema: {
+      identityId: z.string().describe("Identity ID to delete"),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+  }, async ({ identityId }) => {
+    const { status, data } = await supervisorApi("DELETE", `/identities/${identityId}`);
+    return status === 204 ? ok({ message: `Deleted identity ${identityId}` }) : fail("Failed to delete identity", data);
+  });
+
+  supervisorServer.registerTool("identities.rotate_key", {
+    title: "Rotate Identity Key",
+    description: "Generate a new API key for an identity. The old key is immediately invalidated.",
+    inputSchema: {
+      identityId: z.string().describe("Identity ID to rotate key for"),
+    },
+  }, async ({ identityId }) => {
+    const { status, data } = await supervisorApi("POST", `/identities/${identityId}/rotate-key`);
+    return status === 200 ? ok(data) : fail("Failed to rotate key", data);
+  });
+
+  supervisorServer.registerTool("identities.update_scopes", {
+    title: "Update Identity Scopes",
+    description: "Add or remove scopes from an identity",
+    inputSchema: {
+      identityId: z.string().describe("Identity ID"),
+      addScopes: z.array(z.string()).optional().describe("Scopes to add"),
+      removeScopes: z.array(z.string()).optional().describe("Scopes to remove"),
+    },
+  }, async ({ identityId, addScopes, removeScopes }) => {
+    const { status, data } = await supervisorApi("PATCH", `/identities/${identityId}`, { addScopes, removeScopes });
+    return status === 200 ? ok(data) : fail("Failed to update scopes", data);
+  });
+}
 
 // ============================================
 // START
@@ -253,7 +630,13 @@ async function main() {
   }
 
   const transport = new StdioServerTransport();
-  await server.connect(transport);
+
+  if (IS_SUPERVISOR) {
+    console.error("Supervisor mode: mgsv- key detected. Registering identity management tools.");
+    await supervisorServer.connect(transport);
+  } else {
+    await server.connect(transport);
+  }
 }
 
 main().catch((err) => {
