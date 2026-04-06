@@ -523,17 +523,17 @@ server.registerPrompt("get-totp", {
 }));
 
 // ============================================
-// SUPERVISOR MODE
+// PLATFORM MODE
 // ============================================
 
-const IS_SUPERVISOR = API_KEY.startsWith("mgsv-");
+const IS_PLATFORM = API_KEY.startsWith("lopk-");
 
-const supervisorServer = new McpServer({
-  name: "loomal-supervisor",
+const platformServer = new McpServer({
+  name: "loomal-platform",
   version: "0.1.0",
 });
 
-function supervisorApi(
+function platformApi(
   method: string,
   path: string,
   body?: unknown,
@@ -541,8 +541,8 @@ function supervisorApi(
   return api(method, `/platform${path}`, body);
 }
 
-if (IS_SUPERVISOR) {
-  supervisorServer.registerTool("identities.list", {
+if (IS_PLATFORM) {
+  platformServer.registerTool("identities.list", {
     title: "List Identities",
     description: "List all identities in the organization",
     inputSchema: {
@@ -553,11 +553,11 @@ if (IS_SUPERVISOR) {
     const params = new URLSearchParams();
     if (limit) params.set("limit", String(limit));
     const q = params.toString();
-    const { status, data } = await supervisorApi("GET", `/identities${q ? `?${q}` : ""}`);
+    const { status, data } = await platformApi("GET", `/identities${q ? `?${q}` : ""}`);
     return status === 200 ? ok(data) : fail("Failed to list identities", data);
   });
 
-  supervisorServer.registerTool("identities.get", {
+  platformServer.registerTool("identities.get", {
     title: "Get Identity",
     description: "Get details of a specific identity",
     inputSchema: {
@@ -565,11 +565,11 @@ if (IS_SUPERVISOR) {
     },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, async ({ identityId }) => {
-    const { status, data } = await supervisorApi("GET", `/identities/${identityId}`);
+    const { status, data } = await platformApi("GET", `/identities/${identityId}`);
     return status === 200 ? ok(data) : fail("Failed to get identity", data);
   });
 
-  supervisorServer.registerTool("identities.create", {
+  platformServer.registerTool("identities.create", {
     title: "Create Identity",
     description: "Create a new agent identity with an email inbox and API key",
     inputSchema: {
@@ -578,11 +578,11 @@ if (IS_SUPERVISOR) {
       scopes: z.array(z.string()).describe("Scopes: mail:read, mail:send, mail:manage, vault:read, vault:write, identity:sign, identity:verify, calendar:read, calendar:write, calendar:delete, calendar:public"),
     },
   }, async ({ name, emailName, scopes }) => {
-    const { status, data } = await supervisorApi("POST", "/identities", { name, emailName, scopes });
+    const { status, data } = await platformApi("POST", "/identities", { name, emailName, scopes });
     return status === 201 || status === 200 ? ok(data) : fail("Failed to create identity", data);
   });
 
-  supervisorServer.registerTool("identities.delete", {
+  platformServer.registerTool("identities.delete", {
     title: "Delete Identity",
     description: "Permanently delete an identity and all its data (inbox, vault, logs)",
     inputSchema: {
@@ -590,22 +590,22 @@ if (IS_SUPERVISOR) {
     },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
   }, async ({ identityId }) => {
-    const { status, data } = await supervisorApi("DELETE", `/identities/${identityId}`);
+    const { status, data } = await platformApi("DELETE", `/identities/${identityId}`);
     return status === 204 ? ok({ message: `Deleted identity ${identityId}` }) : fail("Failed to delete identity", data);
   });
 
-  supervisorServer.registerTool("identities.rotate_key", {
+  platformServer.registerTool("identities.rotate_key", {
     title: "Rotate Identity Key",
     description: "Generate a new API key for an identity. The old key is immediately invalidated.",
     inputSchema: {
       identityId: z.string().describe("Identity ID to rotate key for"),
     },
   }, async ({ identityId }) => {
-    const { status, data } = await supervisorApi("POST", `/identities/${identityId}/rotate-key`);
+    const { status, data } = await platformApi("POST", `/identities/${identityId}/rotate-key`);
     return status === 200 ? ok(data) : fail("Failed to rotate key", data);
   });
 
-  supervisorServer.registerTool("identities.update_scopes", {
+  platformServer.registerTool("identities.update_scopes", {
     title: "Update Identity Scopes",
     description: "Add or remove scopes from an identity",
     inputSchema: {
@@ -614,7 +614,7 @@ if (IS_SUPERVISOR) {
       removeScopes: z.array(z.string()).optional().describe("Scopes to remove"),
     },
   }, async ({ identityId, addScopes, removeScopes }) => {
-    const { status, data } = await supervisorApi("PATCH", `/identities/${identityId}`, { addScopes, removeScopes });
+    const { status, data } = await platformApi("PATCH", `/identities/${identityId}`, { addScopes, removeScopes });
     return status === 200 ? ok(data) : fail("Failed to update scopes", data);
   });
 }
@@ -631,9 +631,9 @@ async function main() {
 
   const transport = new StdioServerTransport();
 
-  if (IS_SUPERVISOR) {
-    console.error("Supervisor mode: mgsv- key detected. Registering identity management tools.");
-    await supervisorServer.connect(transport);
+  if (IS_PLATFORM) {
+    console.error("Platform mode: lopk- key detected. Registering identity management tools.");
+    await platformServer.connect(transport);
   } else {
     await server.connect(transport);
   }

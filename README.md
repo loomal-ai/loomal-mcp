@@ -72,12 +72,12 @@ Each identity is its own MCP server instance:
     "sales-agent": {
       "command": "npx",
       "args": ["-y", "loomal-mcp"],
-      "env": { "LOOMAL_API_KEY": "mgent-sales-key" }
+      "env": { "LOOMAL_API_KEY": "loid-sales-key" }
     },
     "support-agent": {
       "command": "npx",
       "args": ["-y", "loomal-mcp"],
-      "env": { "LOOMAL_API_KEY": "mgent-support-key" }
+      "env": { "LOOMAL_API_KEY": "loid-support-key" }
     }
   }
 }
