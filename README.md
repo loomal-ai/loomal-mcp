@@ -1,4 +1,4 @@
-# loomal-mcp
+# @loomal/mcp
 
 Identity infrastructure for AI agents — email, credentials, and TOTP in one place.
 
@@ -9,7 +9,7 @@ Identity infrastructure for AI agents — email, credentials, and TOTP in one pl
   "mcpServers": {
     "loomal": {
       "command": "npx",
-      "args": ["-y", "loomal-mcp"],
+      "args": ["-y", "@loomal/mcp"],
       "env": {
         "LOOMAL_API_KEY": "YOUR_API_KEY"
       }
@@ -71,12 +71,12 @@ Each identity is its own MCP server instance:
   "mcpServers": {
     "sales-agent": {
       "command": "npx",
-      "args": ["-y", "loomal-mcp"],
+      "args": ["-y", "@loomal/mcp"],
       "env": { "LOOMAL_API_KEY": "loid-sales-key" }
     },
     "support-agent": {
       "command": "npx",
-      "args": ["-y", "loomal-mcp"],
+      "args": ["-y", "@loomal/mcp"],
       "env": { "LOOMAL_API_KEY": "loid-support-key" }
     }
   }
