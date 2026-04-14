@@ -233,6 +233,46 @@ server.registerTool("mail.delete_thread", {
   return status === 204 ? ok({ message: `Deleted thread '${threadId}'` }) : fail("Failed to delete thread", data);
 });
 
+// ============================================
+// EMAIL RULES (ALLOW/BLOCK LISTS)
+// ============================================
+
+server.registerTool("mail.list_rules", {
+  title: "List Email Rules",
+  description: "List all allow/block rules for this identity",
+  inputSchema: {},
+  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+}, async () => {
+  const { status, data } = await api("GET", "/email-rules");
+  return status === 200 ? ok(data) : fail("Failed to list rules", data);
+});
+
+server.registerTool("mail.add_rule", {
+  title: "Add Email Rule",
+  description: "Add an allow or block rule for email. Use type ALLOW or BLOCK, scope RECEIVE/SEND/REPLY, and value as email or *@domain.com pattern.",
+  inputSchema: {
+    type: z.enum(["ALLOW", "BLOCK"]).describe("Rule type: ALLOW or BLOCK"),
+    scope: z.enum(["RECEIVE", "SEND", "REPLY"]).describe("Rule scope: RECEIVE, SEND, or REPLY"),
+    value: z.string().describe("Email address (user@example.com) or domain pattern (*@domain.com)"),
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+}, async ({ type, scope, value }) => {
+  const { status, data } = await api("POST", "/email-rules", { type, scope, value });
+  return status === 201 ? ok(data) : fail("Failed to add rule", data);
+});
+
+server.registerTool("mail.delete_rule", {
+  title: "Delete Email Rule",
+  description: "Delete an email allow/block rule by its ID",
+  inputSchema: {
+    ruleId: z.string().describe("The rule ID to delete"),
+  },
+  annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+}, async ({ ruleId }) => {
+  const { status, data } = await api("DELETE", `/email-rules/${encodeURIComponent(ruleId)}`);
+  return status === 204 ? ok({ message: `Deleted rule '${ruleId}'` }) : fail("Failed to delete rule", data);
+});
+
 server.registerTool("mail.list_threads", {
   title: "List Threads",
   description: "List email threads in your agent's inbox. Returns newest first.",
