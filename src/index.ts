@@ -44,13 +44,43 @@ const server = new McpServer({
   version: "0.1.0",
 });
 
+// Scope constants — mirror packages/types `SCOPES` so tool gating tracks
+// the same names the API uses.
+const SCOPES = {
+  MAIL_READ: "mail:read",
+  MAIL_SEND: "mail:send",
+  MAIL_MANAGE: "mail:manage",
+  VAULT_READ: "vault:read",
+  VAULT_WRITE: "vault:write",
+  IDENTITY_SIGN: "identity:sign",
+  IDENTITY_VERIFY: "identity:verify",
+  CALENDAR_READ: "calendar:read",
+  CALENDAR_WRITE: "calendar:write",
+  CALENDAR_DELETE: "calendar:delete",
+  CALENDAR_PUBLIC: "calendar:public",
+  PAYMENTS_ACCEPT: "payments:accept",
+  PAYMENTS_SPEND: "payments:spend",
+} as const;
+
+/**
+ * Register the user-mode tools matching the API key's scopes. Called from
+ * main() after /v0/whoami. Tools without a required scope (whoami, activity)
+ * always register.
+ *
+ * Gating at registration time means the LLM's tool picker only sees what's
+ * actually callable — SELLER projects (only payments:accept) don't see
+ * buyer-side tools at all.
+ */
+function registerUserTools(scopes: string[]) {
+  const has = (s: string) => scopes.includes(s);
+
 // ============================================
 // IDENTITY TOOLS
 // ============================================
 
 server.registerTool("identity_whoami", {
   title: "Identity · Who Am I",
-  description: "Get your agent identity info — name, email, DID, and scopes",
+  description: "Get your agent identity info — name, email, DID, scopes, and purpose (SELLER or BUYER)",
   inputSchema: {},
   annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 }, async () => {
@@ -59,7 +89,7 @@ server.registerTool("identity_whoami", {
   return status === 200 ? ok(data) : fail("Failed to get identity", data);
 });
 
-server.registerTool("identity_sign", {
+if (has(SCOPES.IDENTITY_SIGN)) server.registerTool("identity_sign", {
   title: "Identity · Sign Data",
   description: "Sign arbitrary data with this identity's Ed25519 private key. Returns the signature and the identity's DID.",
   inputSchema: {
@@ -71,7 +101,7 @@ server.registerTool("identity_sign", {
   return status === 200 ? ok(res) : fail("Failed to sign data", res);
 });
 
-server.registerTool("identity_verify", {
+if (has(SCOPES.IDENTITY_VERIFY)) server.registerTool("identity_verify", {
   title: "Identity · Verify Signature",
   description: "Verify a signature against any did:web identity. Resolves the DID Document and checks the Ed25519 signature.",
   inputSchema: {
@@ -89,7 +119,7 @@ server.registerTool("identity_verify", {
 // MAIL TOOLS
 // ============================================
 
-server.registerTool("mail_send", {
+if (has(SCOPES.MAIL_SEND)) server.registerTool("mail_send", {
   title: "Mail · Send",
   description: "Send an email from your agent's inbox",
   inputSchema: {
@@ -106,7 +136,7 @@ server.registerTool("mail_send", {
   return status === 201 ? ok(data) : fail("Failed to send", data);
 });
 
-server.registerTool("mail_reply", {
+if (has(SCOPES.MAIL_SEND)) server.registerTool("mail_reply", {
   title: "Mail · Reply",
   description: "Reply to an existing email in a thread",
   inputSchema: {
@@ -120,7 +150,7 @@ server.registerTool("mail_reply", {
   return status === 201 ? ok(data) : fail("Failed to reply", data);
 });
 
-server.registerTool("mail_list_messages", {
+if (has(SCOPES.MAIL_READ)) server.registerTool("mail_list_messages", {
   title: "Mail · List Messages",
   description: "List emails in your agent's inbox. Returns newest first.",
   inputSchema: {
@@ -139,7 +169,7 @@ server.registerTool("mail_list_messages", {
   return status === 200 ? ok(data) : fail("Failed to list messages", data);
 });
 
-server.registerTool("mail_get_message", {
+if (has(SCOPES.MAIL_READ)) server.registerTool("mail_get_message", {
   title: "Mail · Get Message",
   description: "Get a specific email by its messageId",
   inputSchema: {
@@ -151,7 +181,7 @@ server.registerTool("mail_get_message", {
   return status === 200 ? ok(data) : fail("Failed to get message", data);
 });
 
-server.registerTool("mail_get_attachment", {
+if (has(SCOPES.MAIL_READ)) server.registerTool("mail_get_attachment", {
   title: "Mail · Get Attachment",
   description: "Download the contents of an email attachment as base64-encoded data. Use mail_get_message or mail_get_thread first to find attachment IDs and metadata.",
   inputSchema: {
@@ -181,7 +211,7 @@ server.registerTool("mail_get_attachment", {
   });
 });
 
-server.registerTool("mail_update_labels", {
+if (has(SCOPES.MAIL_MANAGE)) server.registerTool("mail_update_labels", {
   title: "Mail · Update Message Labels",
   description: "Add or remove labels on a message",
   inputSchema: {
@@ -195,7 +225,7 @@ server.registerTool("mail_update_labels", {
   return status === 200 ? ok(data) : fail("Failed to update labels", data);
 });
 
-server.registerTool("mail_update_thread_labels", {
+if (has(SCOPES.MAIL_MANAGE)) server.registerTool("mail_update_thread_labels", {
   title: "Mail · Update Thread Labels",
   description: "Add or remove labels on a thread (e.g. 'starred', 'important', 'archived', or custom labels). Thread labels are separate from message labels.",
   inputSchema: {
@@ -209,7 +239,7 @@ server.registerTool("mail_update_thread_labels", {
   return status === 200 ? ok(data) : fail("Failed to update thread labels", data);
 });
 
-server.registerTool("mail_delete_message", {
+if (has(SCOPES.MAIL_MANAGE)) server.registerTool("mail_delete_message", {
   title: "Mail · Delete Message",
   description: "Delete a single message from the inbox",
   inputSchema: {
@@ -221,7 +251,7 @@ server.registerTool("mail_delete_message", {
   return status === 204 ? ok({ message: `Deleted message '${messageId}'` }) : fail("Failed to delete", data);
 });
 
-server.registerTool("mail_delete_thread", {
+if (has(SCOPES.MAIL_MANAGE)) server.registerTool("mail_delete_thread", {
   title: "Mail · Delete Thread",
   description: "Delete an entire thread and all its messages",
   inputSchema: {
@@ -237,7 +267,7 @@ server.registerTool("mail_delete_thread", {
 // EMAIL RULES (ALLOW/BLOCK LISTS)
 // ============================================
 
-server.registerTool("mail_list_rules", {
+if (has(SCOPES.MAIL_READ)) server.registerTool("mail_list_rules", {
   title: "Mail · List Rules",
   description: "List all allow/block rules for this identity",
   inputSchema: {},
@@ -247,7 +277,7 @@ server.registerTool("mail_list_rules", {
   return status === 200 ? ok(data) : fail("Failed to list rules", data);
 });
 
-server.registerTool("mail_add_rule", {
+if (has(SCOPES.MAIL_MANAGE)) server.registerTool("mail_add_rule", {
   title: "Mail · Add Rule",
   description: "Add an allow or block rule for email. Use type ALLOW or BLOCK, scope RECEIVE/SEND/REPLY, and value as email or *@domain.com pattern.",
   inputSchema: {
@@ -261,7 +291,7 @@ server.registerTool("mail_add_rule", {
   return status === 201 ? ok(data) : fail("Failed to add rule", data);
 });
 
-server.registerTool("mail_delete_rule", {
+if (has(SCOPES.MAIL_MANAGE)) server.registerTool("mail_delete_rule", {
   title: "Mail · Delete Rule",
   description: "Delete an email allow/block rule by its ID",
   inputSchema: {
@@ -273,7 +303,7 @@ server.registerTool("mail_delete_rule", {
   return status === 204 ? ok({ message: `Deleted rule '${ruleId}'` }) : fail("Failed to delete rule", data);
 });
 
-server.registerTool("mail_list_threads", {
+if (has(SCOPES.MAIL_READ)) server.registerTool("mail_list_threads", {
   title: "Mail · List Threads",
   description: "List email threads in your agent's inbox. Returns newest first.",
   inputSchema: {
@@ -290,7 +320,7 @@ server.registerTool("mail_list_threads", {
   return status === 200 ? ok(data) : fail("Failed to list threads", data);
 });
 
-server.registerTool("mail_get_thread", {
+if (has(SCOPES.MAIL_READ)) server.registerTool("mail_get_thread", {
   title: "Mail · Get Thread",
   description: "Get a full email thread with messages (newest 200 by default)",
   inputSchema: {
@@ -310,7 +340,7 @@ server.registerTool("mail_get_thread", {
 // VAULT TOOLS
 // ============================================
 
-server.registerTool("vault_list", {
+if (has(SCOPES.VAULT_READ)) server.registerTool("vault_list", {
   title: "Vault · List Credentials",
   description: "List all credentials in the vault (metadata only, no secrets)",
   inputSchema: {},
@@ -320,7 +350,7 @@ server.registerTool("vault_list", {
   return status === 200 ? ok(data) : fail("Failed to list credentials", data);
 });
 
-server.registerTool("vault_get", {
+if (has(SCOPES.VAULT_READ)) server.registerTool("vault_get", {
   title: "Vault · Get Credential",
   description: "Retrieve a decrypted credential from the vault. For TOTP credentials, use vault_totp instead to get the code.",
   inputSchema: {
@@ -332,7 +362,7 @@ server.registerTool("vault_get", {
   return status === 200 ? ok(data) : fail("Failed to get credential", data);
 });
 
-server.registerTool("vault_totp", {
+if (has(SCOPES.VAULT_READ)) server.registerTool("vault_totp", {
   title: "Vault · Get TOTP Code",
   description: "Generate the current 6-digit TOTP code. Works on any credential that has a TOTP secret. Response also includes backupCodesRemaining (count of stored single-use recovery codes); call vault_totp_use_backup when the live TOTP is unavailable.",
   inputSchema: {
@@ -344,7 +374,7 @@ server.registerTool("vault_totp", {
   return status === 200 ? ok(data) : fail("Failed to get TOTP", data);
 });
 
-server.registerTool("vault_totp_use_backup", {
+if (has(SCOPES.VAULT_READ)) server.registerTool("vault_totp_use_backup", {
   title: "Vault · Use TOTP Backup Code",
   description: "Atomically consume one single-use TOTP backup code. The popped code is moved into data.usedBackupCodes for audit. Use when the live TOTP code is unavailable (clock skew, lost device).",
   inputSchema: {
@@ -356,7 +386,7 @@ server.registerTool("vault_totp_use_backup", {
   return status === 200 ? ok(data) : fail("Failed to consume backup code", data);
 });
 
-server.registerTool("vault_store", {
+if (has(SCOPES.VAULT_WRITE)) server.registerTool("vault_store", {
   title: "Vault · Store Credential",
   description: "Store or update an encrypted credential in the vault. Prefer the typed helpers (vault_storeApiKey, vault_storeCard, vault_storeShippingAddress) when they fit.",
   inputSchema: {
@@ -376,7 +406,7 @@ server.registerTool("vault_store", {
   return status === 200 ? ok(res) : fail("Failed to store credential", res);
 });
 
-server.registerTool("vault_storeApiKey", {
+if (has(SCOPES.VAULT_WRITE)) server.registerTool("vault_storeApiKey", {
   title: "Vault · Store API Key",
   description: "Store an API_KEY credential. Use just 'secret' for single-key services (e.g. sk_live_...), or both 'clientId' and 'secret' for OAuth-style client credentials.",
   inputSchema: {
@@ -394,7 +424,7 @@ server.registerTool("vault_storeApiKey", {
   return status === 200 ? ok(res) : fail("Failed to store API key", res);
 });
 
-server.registerTool("vault_storeCard", {
+if (has(SCOPES.VAULT_WRITE)) server.registerTool("vault_storeCard", {
   title: "Vault · Store Card",
   description: "Store a payment card as an encrypted credential. This is password-manager-style secret storage — the vault does NOT charge the card.",
   inputSchema: {
@@ -419,7 +449,7 @@ server.registerTool("vault_storeCard", {
   return status === 200 ? ok(res) : fail("Failed to store card", res);
 });
 
-server.registerTool("vault_storeShippingAddress", {
+if (has(SCOPES.VAULT_WRITE)) server.registerTool("vault_storeShippingAddress", {
   title: "Vault · Store Shipping Address",
   description: "Store a shipping / mailing address as an encrypted credential.",
   inputSchema: {
@@ -444,7 +474,7 @@ server.registerTool("vault_storeShippingAddress", {
   return status === 200 ? ok(res) : fail("Failed to store shipping address", res);
 });
 
-server.registerTool("vault_delete", {
+if (has(SCOPES.VAULT_WRITE)) server.registerTool("vault_delete", {
   title: "Vault · Delete Credential",
   description: "Remove a credential from the vault",
   inputSchema: {
@@ -460,7 +490,7 @@ server.registerTool("vault_delete", {
 // CALENDAR TOOLS
 // ============================================
 
-server.registerTool("calendar_create", {
+if (has(SCOPES.CALENDAR_WRITE)) server.registerTool("calendar_create", {
   title: "Calendar · Create Event",
   description: "Create a new event on this identity's calendar",
   inputSchema: {
@@ -477,7 +507,7 @@ server.registerTool("calendar_create", {
   return status === 201 || status === 200 ? ok(data) : fail("Failed to create event", data);
 });
 
-server.registerTool("calendar_update", {
+if (has(SCOPES.CALENDAR_WRITE)) server.registerTool("calendar_update", {
   title: "Calendar · Update Event",
   description: "Update an existing calendar event",
   inputSchema: {
@@ -495,7 +525,7 @@ server.registerTool("calendar_update", {
   return status === 200 ? ok(data) : fail("Failed to update event", data);
 });
 
-server.registerTool("calendar_list", {
+if (has(SCOPES.CALENDAR_READ)) server.registerTool("calendar_list", {
   title: "Calendar · List Events",
   description: "List events on this identity's calendar",
   inputSchema: {
@@ -514,7 +544,7 @@ server.registerTool("calendar_list", {
   return status === 200 ? ok(data) : fail("Failed to list events", data);
 });
 
-server.registerTool("calendar_get", {
+if (has(SCOPES.CALENDAR_READ)) server.registerTool("calendar_get", {
   title: "Calendar · Get Event",
   description: "Get details of a specific calendar event",
   inputSchema: {
@@ -526,7 +556,7 @@ server.registerTool("calendar_get", {
   return status === 200 ? ok(data) : fail("Failed to get event", data);
 });
 
-server.registerTool("calendar_delete", {
+if (has(SCOPES.CALENDAR_DELETE)) server.registerTool("calendar_delete", {
   title: "Calendar · Delete Event",
   description: "Delete a calendar event",
   inputSchema: {
@@ -538,7 +568,7 @@ server.registerTool("calendar_delete", {
   return status === 204 ? ok({ message: `Deleted event '${eventId}'` }) : fail("Failed to delete event", data);
 });
 
-server.registerTool("calendar_set_public", {
+if (has(SCOPES.CALENDAR_PUBLIC)) server.registerTool("calendar_set_public", {
   title: "Calendar · Set Visibility",
   description: "Make this identity's calendar public or private. Public calendars are viewable at /identities/:id/calendar.json",
   inputSchema: {
@@ -554,7 +584,7 @@ server.registerTool("calendar_set_public", {
 // PAYMENTS — buyer side
 // ============================================
 
-server.registerTool("payments_pay", {
+if (has(SCOPES.PAYMENTS_SPEND)) server.registerTool("payments_pay", {
   title: "Payments · Pay",
   description:
     "Pay an x402-priced URL in USDC under this identity's active mandate. Returns the resource content plus cost, balance, and mandate progress. Returns a typed failure body (with `code`) instead of throwing when the mandate, balance, or seller rejects the call. Use dryRun=true to preview without spending.",
@@ -587,7 +617,7 @@ server.registerTool("payments_activity", {
   return status === 200 ? ok(data) : fail("Failed to fetch activity", data);
 });
 
-server.registerTool("payments_mandates_list", {
+if (has(SCOPES.PAYMENTS_SPEND)) server.registerTool("payments_mandates_list", {
   title: "Payments · List Mandates",
   description: "List spend mandates attached to this identity's wallet (active, expired, revoked, and errored).",
   inputSchema: {},
@@ -597,7 +627,7 @@ server.registerTool("payments_mandates_list", {
   return status === 200 ? ok(data) : fail("Failed to list mandates", data);
 });
 
-server.registerTool("payments_mandates_create", {
+if (has(SCOPES.PAYMENTS_SPEND)) server.registerTool("payments_mandates_create", {
   title: "Payments · Create Mandate",
   description:
     "Create the spend policy for this identity's wallet. Installs an on-chain session key — first call takes 10–30 seconds. If installError comes back set, the mandate is unusable: retry creation.",
@@ -616,7 +646,7 @@ server.registerTool("payments_mandates_create", {
   return status === 200 ? ok(data) : fail("Failed to create mandate", data);
 });
 
-server.registerTool("payments_mandates_get", {
+if (has(SCOPES.PAYMENTS_SPEND)) server.registerTool("payments_mandates_get", {
   title: "Payments · Get Mandate",
   description: "Fetch one mandate by id, with live spend counters.",
   inputSchema: {
@@ -628,7 +658,7 @@ server.registerTool("payments_mandates_get", {
   return status === 200 ? ok(data) : fail("Failed to get mandate", data);
 });
 
-server.registerTool("payments_mandates_revoke", {
+if (has(SCOPES.PAYMENTS_SPEND)) server.registerTool("payments_mandates_revoke", {
   title: "Payments · Revoke Mandate",
   description:
     "Revoke a mandate. The on-chain session key is not uninstalled (manual via Console if needed); settled payments are unaffected.",
@@ -640,6 +670,8 @@ server.registerTool("payments_mandates_revoke", {
   const { status, data } = await api("DELETE", `/payments/mandates/${encodeURIComponent(mandateId)}`);
   return status === 204 || status === 200 ? ok({ revoked: mandateId }) : fail("Failed to revoke mandate", data);
 });
+
+} // end registerUserTools
 
 // ============================================
 // PROMPTS
@@ -913,9 +945,28 @@ async function main() {
   if (IS_PLATFORM) {
     console.error("Platform mode: lopk- key detected. Registering identity management tools.");
     await platformServer.connect(transport);
-  } else {
-    await server.connect(transport);
+    return;
   }
+
+  // Discover which tools to expose by looking up the identity's scopes.
+  // SELLER projects only have payments:accept and see no buyer-side tools;
+  // BUYER projects get the broad mail/vault/calendar/payments-spend surface.
+  const { status, data } = await api("GET", "/whoami");
+  if (status !== 200) {
+    console.error(
+      `Failed to fetch identity scopes (status ${status}). ` +
+      "Check LOOMAL_API_KEY is valid and the API is reachable.",
+    );
+    process.exit(1);
+  }
+  const whoami = data as { scopes: string[]; purpose: "SELLER" | "BUYER" };
+  const scopes = whoami.scopes;
+  console.error(
+    `Connected as ${whoami.purpose} identity with ${scopes.length} scope(s).`,
+  );
+
+  registerUserTools(scopes);
+  await server.connect(transport);
 }
 
 main().catch((err) => {
