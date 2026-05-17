@@ -959,11 +959,10 @@ async function main() {
     );
     process.exit(1);
   }
-  const whoami = data as { scopes?: string[]; purpose?: string | null };
-  const scopes = whoami.scopes ?? [];
-  const purpose = whoami.purpose ?? "BUYER";
+  const whoami = data as { scopes: string[]; purpose: "SELLER" | "BUYER" };
+  const scopes = whoami.scopes;
   console.error(
-    `Connected as ${purpose} identity with ${scopes.length} scope(s).`,
+    `Connected as ${whoami.purpose} identity with ${scopes.length} scope(s).`,
   );
 
   registerUserTools(scopes);
