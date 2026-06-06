@@ -1,8 +1,42 @@
 # @loomal/mcp
 
+> [!WARNING]
+> **`@loomal/mcp` is deprecated.** Loomal is now **Mailgent**. Please migrate to
+> [`@mailgent-dev/mcp`](https://www.npmjs.com/package/@mailgent-dev/mcp). See the
+> [migration guide](https://docs.mailgent.dev/migrate).
+>
+> This package now ships as a **compatibility shim**: it defaults to
+> `https://api.mailgent.dev` and prefers the `MAILGENT_API_KEY` /
+> `MAILGENT_API_URL` env vars, while still accepting the legacy
+> `LOOMAL_API_KEY` / `LOOMAL_API_URL` names so existing configs keep working.
+
 Identity infrastructure for AI agents — email, credentials, and TOTP in one place.
 
 ## Quick Start
+
+Use the new package, `@mailgent-dev/mcp` (recommended):
+
+```json
+{
+  "mcpServers": {
+    "mailgent": {
+      "command": "npx",
+      "args": ["-y", "@mailgent-dev/mcp"],
+      "env": {
+        "MAILGENT_API_KEY": "YOUR_API_KEY"
+      }
+    }
+  }
+}
+```
+
+Get your API key from [console.mailgent.dev](https://console.mailgent.dev).
+
+<details>
+<summary>Deprecated: using <code>@loomal/mcp</code></summary>
+
+The legacy package still runs as a shim. It defaults to `api.mailgent.dev` and
+accepts either `MAILGENT_API_KEY` or the older `LOOMAL_API_KEY`:
 
 ```json
 {
@@ -11,14 +45,14 @@ Identity infrastructure for AI agents — email, credentials, and TOTP in one pl
       "command": "npx",
       "args": ["-y", "@loomal/mcp"],
       "env": {
-        "LOOMAL_API_KEY": "YOUR_API_KEY"
+        "MAILGENT_API_KEY": "YOUR_API_KEY"
       }
     }
   }
 }
 ```
 
-Get your API key from [console.loomal.ai](https://console.loomal.ai).
+</details>
 
 ## Examples
 
@@ -75,13 +109,13 @@ Each identity is its own MCP server instance:
   "mcpServers": {
     "sales-agent": {
       "command": "npx",
-      "args": ["-y", "@loomal/mcp"],
-      "env": { "LOOMAL_API_KEY": "loid-sales-key" }
+      "args": ["-y", "@mailgent-dev/mcp"],
+      "env": { "MAILGENT_API_KEY": "loid-sales-key" }
     },
     "support-agent": {
       "command": "npx",
-      "args": ["-y", "@loomal/mcp"],
-      "env": { "LOOMAL_API_KEY": "loid-support-key" }
+      "args": ["-y", "@mailgent-dev/mcp"],
+      "env": { "MAILGENT_API_KEY": "loid-support-key" }
     }
   }
 }
@@ -89,7 +123,7 @@ Each identity is its own MCP server instance:
 
 ## Docs
 
-[docs.loomal.ai](https://docs.loomal.ai)
+[docs.mailgent.dev](https://docs.mailgent.dev)
 
 ## License
 

@@ -1,7 +1,7 @@
 {
   "name": "@loomal/mcp",
-  "version": "0.6.2",
-  "description": "MCP server for Loomal — Identity infrastructure for AI agents",
+  "version": "0.7.0",
+  "description": "DEPRECATED — use @mailgent-dev/mcp. Compatibility shim for the Loomal MCP server (Identity infrastructure for AI agents); defaults to api.mailgent.dev.",
   "type": "module",
   "bin": {
     "loomal-mcp": "./build/index.js"
