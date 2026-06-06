@@ -4,8 +4,14 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
-const API_KEY = process.env.LOOMAL_API_KEY || "";
-const API_BASE = process.env.LOOMAL_API_URL || "https://api.loomal.ai";
+// @loomal/mcp is deprecated. Prefer MAILGENT_* env vars and default to
+// api.mailgent.dev, but keep accepting the old LOOMAL_* names so live
+// configs keep working unchanged.
+const API_KEY = process.env.MAILGENT_API_KEY || process.env.LOOMAL_API_KEY || "";
+const API_BASE =
+  process.env.MAILGENT_API_URL ||
+  process.env.LOOMAL_API_URL ||
+  "https://api.mailgent.dev";
 
 async function api(
   method: string,
@@ -954,8 +960,14 @@ if (IS_PLATFORM) {
 // ============================================
 
 async function main() {
+  // One-time deprecation notice (stderr only — never touches the stdio
+  // MCP transport, so this is safe for live clients).
+  console.error(
+    "[@loomal/mcp] deprecated — migrate to @mailgent/mcp (https://docs.mailgent.dev/migrate). Defaulting to api.mailgent.dev.",
+  );
+
   if (!API_KEY) {
-    console.error("LOOMAL_API_KEY is required. Set it in your MCP config env.");
+    console.error("MAILGENT_API_KEY is required (LOOMAL_API_KEY also accepted). Set it in your MCP config env.");
     process.exit(1);
   }
 
@@ -974,7 +986,7 @@ async function main() {
   if (status !== 200) {
     console.error(
       `Failed to fetch identity scopes (status ${status}). ` +
-      "Check LOOMAL_API_KEY is valid and the API is reachable.",
+      "Check MAILGENT_API_KEY (or LOOMAL_API_KEY) is valid and the API is reachable.",
     );
     process.exit(1);
   }
