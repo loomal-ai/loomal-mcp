@@ -963,7 +963,7 @@ async function main() {
   // One-time deprecation notice (stderr only — never touches the stdio
   // MCP transport, so this is safe for live clients).
   console.error(
-    "[@loomal/mcp] deprecated — migrate to @mailgent/mcp (https://docs.mailgent.dev/migrate). Defaulting to api.mailgent.dev.",
+    "[@loomal/mcp] deprecated — migrate to @mailgent-dev/mcp (https://docs.mailgent.dev/migrate). Defaulting to api.mailgent.dev.",
   );
 
   if (!API_KEY) {

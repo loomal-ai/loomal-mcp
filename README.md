@@ -2,7 +2,7 @@
 
 > [!WARNING]
 > **`@loomal/mcp` is deprecated.** Loomal is now **Mailgent**. Please migrate to
-> [`@mailgent/mcp`](https://www.npmjs.com/package/@mailgent/mcp). See the
+> [`@mailgent-dev/mcp`](https://www.npmjs.com/package/@mailgent-dev/mcp). See the
 > [migration guide](https://docs.mailgent.dev/migrate).
 >
 > This package now ships as a **compatibility shim**: it defaults to
@@ -14,14 +14,14 @@ Identity infrastructure for AI agents — email, credentials, and TOTP in one pl
 
 ## Quick Start
 
-Use the new package, `@mailgent/mcp` (recommended):
+Use the new package, `@mailgent-dev/mcp` (recommended):
 
 ```json
 {
   "mcpServers": {
     "mailgent": {
       "command": "npx",
-      "args": ["-y", "@mailgent/mcp"],
+      "args": ["-y", "@mailgent-dev/mcp"],
       "env": {
         "MAILGENT_API_KEY": "YOUR_API_KEY"
       }
@@ -109,12 +109,12 @@ Each identity is its own MCP server instance:
   "mcpServers": {
     "sales-agent": {
       "command": "npx",
-      "args": ["-y", "@mailgent/mcp"],
+      "args": ["-y", "@mailgent-dev/mcp"],
       "env": { "MAILGENT_API_KEY": "loid-sales-key" }
     },
     "support-agent": {
       "command": "npx",
-      "args": ["-y", "@mailgent/mcp"],
+      "args": ["-y", "@mailgent-dev/mcp"],
       "env": { "MAILGENT_API_KEY": "loid-support-key" }
     }
   }
